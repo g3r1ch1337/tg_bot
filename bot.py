@@ -12,7 +12,7 @@ from rag import retrieve
 load_dotenv()
 
 OPENROUTER_BASE = "https://openrouter.ai/api/v1" #LOCAL_API_URL ,
-MODEL_NAME = ""
+MODEL_NAME = "nvidia/nemotron-3-ultra-550b-a55b:free"
 llm = ChatOpenAI(
     openai_api_key=os.getenv("OPENROUTER_API_KEY"),
     openai_api_base=OPENROUTER_BASE,
