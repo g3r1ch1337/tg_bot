@@ -1,6 +1,8 @@
 import telebot  #pip install pyTelegramBotAPI
 import os
+import re
 import time
+import traceback
 from collections import defaultdict, deque
 import httpx
 from dotenv import load_dotenv
@@ -27,6 +29,18 @@ apihelper.CONNECT_TIMEOUT = 30
 apihelper.READ_TIMEOUT = 30
 _session = apihelper._get_req_session()
 _session.trust_env = False
+
+def redact_secrets(text: str) -> str:
+    for key, value in os.environ.items():
+        if not value or len(value) < 8:
+            continue
+        if any(part in key.upper() for part in ("KEY", "TOKEN", "SECRET", "PASSWORD", "PASS")):
+            text = text.replace(value, "[REDACTED]")
+    text = re.sub(r"\b\d{8,10}:[A-Za-z0-9_-]{30,}\b", "[REDACTED]", text)
+    text = re.sub(r"(?i)(bearer\s+)\S+", r"\1[REDACTED]", text)
+    text = re.sub(r"sk-(?:or-)?[a-zA-Z0-9_-]{8,}", "[REDACTED]", text)
+    return text
+
 
 bot = telebot.TeleBot(os.getenv("BOT_TOKEN"))
 
@@ -63,19 +77,20 @@ def handle_llm_message(message):
         response = llm.invoke(list(history)).content
         history.append(AIMessage(content=response))
         print(response)
-    except Exception as e:
+    except Exception:
         if history and isinstance(history[-1], HumanMessage):
             history.pop()
+        print(redact_secrets(traceback.format_exc()))
         try:
-            reply_with_retry(message, f"Ошибка модели: {e}. Попробуйте еще раз.")
+            reply_with_retry(message, "Что-то пошло не так. Попробуйте еще раз.")
         except Exception:
-            print(f"Не удалось отправить ошибку в Telegram: {e}")
+            print(redact_secrets(traceback.format_exc()))
         return
 
     try:
         reply_with_retry(message, response)
-    except Exception as e:
-        print(f"Не удалось отправить ответ в Telegram: {e}")
+    except Exception:
+        print(redact_secrets(traceback.format_exc()))
 
 
 bot.infinity_polling(timeout=60, long_polling_timeout=40)

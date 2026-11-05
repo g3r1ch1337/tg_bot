@@ -2,3 +2,6 @@ dotenv
 telebot
 langchain_openai
 pyTelegramBotAPI
+chromadb
+langchain_text_splitters 
+sentence_transformers
